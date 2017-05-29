@@ -52,6 +52,7 @@ SQLALCHEMYBACKEND_MODELS = {
     'QueueModel': 'frontera.contrib.backends.sqlalchemy.models.QueueModel'
 }
 SQLALCHEMYBACKEND_REVISIT_INTERVAL = timedelta(days=1)
+SQLALCHEMYBACKEND_DEQUEUED_DELAY = timedelta(minutes=10)
 STATE_CACHE_SIZE = 1000000
 STATE_CACHE_SIZE_LIMIT = 0
 STORE_CONTENT = False

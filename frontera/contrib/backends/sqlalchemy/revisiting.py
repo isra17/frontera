@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+from w3lib.url import to_native_str
 import logging
 from datetime import datetime, timedelta
 from time import time, sleep
@@ -48,27 +49,34 @@ def retry_and_rollback(func):
 
 
 class RevisitingQueue(BaseQueue):
-    def __init__(self, session_cls, queue_cls, partitions):
+    def __init__(self, session_cls, queue_cls, partitions, dequeued_delay):
         self.session = session_cls()
         self.queue_model = queue_cls
         self.logger = logging.getLogger("sqlalchemy.revisiting.queue")
         self.partitions = [i for i in range(0, partitions)]
         self.partitioner = Crc32NamePartitioner(self.partitions)
+        assert isinstance(dequeued_delay, timedelta)
+        self.dequeued_delay = dequeued_delay.total_seconds()
 
     def frontier_stop(self):
         self.session.close()
 
     def get_next_requests(self, max_n_requests, partition_id, **kwargs):
         results = []
+        to_save = []
         try:
             for item in self.session.query(self.queue_model).\
                     filter(RevisitingQueueModel.crawl_at <= utcnow_timestamp(),
                            RevisitingQueueModel.partition_id == partition_id).\
                     limit(max_n_requests):
                 method = 'GET' if not item.method else item.method
-                results.append(Request(item.url, method=method, meta=item.meta, headers=item.headers,
+                meta = item.meta.copy()
+                meta[b'queue_id'] = item.id
+                results.append(Request(item.url, method=method, meta=meta, headers=item.headers,
                                        cookies=item.cookies))
-                self.session.delete(item)
+                item.crawl_at = utcnow_timestamp() + self.dequeued_delay
+                to_save.append(item)
+            self.session.bulk_save_objects(to_save)
             self.session.commit()
         except Exception as exc:
             self.logger.exception(exc)
@@ -89,11 +97,19 @@ class RevisitingQueue(BaseQueue):
                     partition_id = self.partitioner.partition(hostname, self.partitions)
                     host_crc32 = get_crc32(hostname)
                 schedule_at = request.meta[b'crawl_at'] if b'crawl_at' in request.meta else utcnow_timestamp()
-                q = self.queue_model(fingerprint=fprint, score=score, url=request.url, meta=request.meta,
-                                     headers=request.headers, cookies=request.cookies, method=request.method,
-                                     partition_id=partition_id, host_crc32=host_crc32, created_at=time()*1E+6,
-                                     crawl_at=schedule_at)
-                to_save.append(q)
+                queue_id = request.meta.get(b'queue_id')
+                if queue_id:
+                    self.session.query(self.queue_model).filter_by(id=queue_id).update(dict(
+                            fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
+                            meta=request.meta, headers=request.headers, cookies=request.cookies,
+                            method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
+                            created_at=time()*1E+6, crawl_at=schedule_at))
+                else:
+                    q = self.queue_model(fingerprint=fprint, score=score, url=request.url, meta=request.meta,
+                                         headers=request.headers, cookies=request.cookies, method=request.method,
+                                         partition_id=partition_id, host_crc32=host_crc32, created_at=time()*1E+6,
+                                         crawl_at=schedule_at)
+                    to_save.append(q)
                 request.meta[b'state'] = States.QUEUED
         self.session.bulk_save_objects(to_save)
         self.session.commit()
@@ -109,7 +125,11 @@ class Backend(SQLAlchemyBackend):
         self.interval = settings.get("SQLALCHEMYBACKEND_REVISIT_INTERVAL")
         assert isinstance(self.interval, timedelta)
         self.interval = self.interval.total_seconds()
-        return RevisitingQueue(self.session_cls, RevisitingQueueModel, settings.get('SPIDER_FEED_PARTITIONS'))
+        return RevisitingQueue(
+                self.session_cls,
+                RevisitingQueueModel,
+                settings.get('SPIDER_FEED_PARTITIONS'),
+                settings.get('SQLALCHEMYBACKEND_DEQUEUED_DELAY'))
 
     def _schedule(self, requests):
         batch = []
