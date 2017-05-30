@@ -68,6 +68,7 @@ class RevisitingQueue(BaseQueue):
             for item in self.session.query(self.queue_model).\
                     filter(RevisitingQueueModel.crawl_at <= utcnow_timestamp(),
                            RevisitingQueueModel.partition_id == partition_id).\
+                    order_by(RevisitingQueueModel.score.desc(), RevisitingQueueModel.crawl_at).\
                     limit(max_n_requests):
                 method = 'GET' if not item.method else item.method
                 meta = item.meta.copy()
