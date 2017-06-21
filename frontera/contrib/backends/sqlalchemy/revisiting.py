@@ -100,10 +100,10 @@ class RevisitingQueue(BaseQueue):
                 queue_id = request.meta.get(b'queue_id')
                 if queue_id:
                     self.session.query(self.queue_model).filter_by(id=queue_id).update(dict(
-                            fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
-                            meta=request.meta, headers=request.headers, cookies=request.cookies,
-                            method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
-                            created_at=time()*1E+6, crawl_at=schedule_at))
+                        fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
+                        meta=request.meta, headers=request.headers, cookies=request.cookies,
+                        method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
+                        created_at=time()*1E+6, crawl_at=schedule_at))
                 else:
                     q = self.queue_model(fingerprint=fprint, score=score, url=request.url, meta=request.meta,
                                          headers=request.headers, cookies=request.cookies, method=request.method,
@@ -126,10 +126,10 @@ class Backend(SQLAlchemyBackend):
         assert isinstance(self.interval, timedelta)
         self.interval = self.interval.total_seconds()
         return RevisitingQueue(
-                self.session_cls,
-                RevisitingQueueModel,
-                self.partitioner,
-                settings.get('SQLALCHEMYBACKEND_DEQUEUED_DELAY'))
+            self.session_cls,
+            RevisitingQueueModel,
+            self.partitioner,
+            settings.get('SQLALCHEMYBACKEND_DEQUEUED_DELAY'))
 
     def _schedule(self, requests):
         batch = []
