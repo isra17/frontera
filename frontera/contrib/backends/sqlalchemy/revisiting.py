@@ -64,16 +64,8 @@ class RevisitingQueue(BaseQueue):
         results = []
         to_save = []
         try:
-            for item in self.session.query(self.queue_model).\
-                    filter(RevisitingQueueModel.crawl_at <= utcnow_timestamp(),
-                           RevisitingQueueModel.partition_id == partition_id).\
-                    order_by(RevisitingQueueModel.score.desc(), RevisitingQueueModel.crawl_at).\
-                    limit(max_n_requests):
-                method = 'GET' if not item.method else item.method
-                meta = item.meta.copy()
-                meta[b'queue_id'] = item.id
-                results.append(Request(item.url, method=method, meta=meta, headers=item.headers,
-                                       cookies=item.cookies))
+            for item in self.query_next_requests(max_n_requests, partition_id):
+                results.append(self.request_from_record(item))
                 item.crawl_at = utcnow_timestamp() + self.dequeued_delay
                 to_save.append(item)
             self.session.bulk_save_objects(to_save)
@@ -82,6 +74,20 @@ class RevisitingQueue(BaseQueue):
             self.logger.exception(exc)
             self.session.rollback()
         return results
+
+    def query_next_requests(self, max_n_requests, partition_id):
+        return self.session.query(self.queue_model).\
+            filter(RevisitingQueueModel.crawl_at <= utcnow_timestamp(),
+                   RevisitingQueueModel.partition_id == partition_id).\
+            order_by(RevisitingQueueModel.score.desc(), RevisitingQueueModel.crawl_at).\
+            limit(max_n_requests)
+
+    def request_from_record(self, item):
+        method = 'GET' if not item.method else item.method
+        meta = item.meta.copy()
+        meta[b'queue_id'] = item.id
+        return Request(item.url, method=method, meta=meta, headers=item.headers,
+                       cookies=item.cookies)
 
     @retry_and_rollback
     def schedule(self, batch):
@@ -98,17 +104,15 @@ class RevisitingQueue(BaseQueue):
                     host_crc32 = get_crc32(key)
                 schedule_at = request.meta[b'crawl_at'] if b'crawl_at' in request.meta else utcnow_timestamp()
                 queue_id = request.meta.get(b'queue_id')
+                data = dict(
+                    fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
+                    meta=request.meta, headers=request.headers, cookies=request.cookies,
+                    method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
+                    created_at=time()*1E+6, crawl_at=schedule_at)
                 if queue_id:
-                    self.session.query(self.queue_model).filter_by(id=queue_id).update(dict(
-                        fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
-                        meta=request.meta, headers=request.headers, cookies=request.cookies,
-                        method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
-                        created_at=time()*1E+6, crawl_at=schedule_at))
+                    self.session.query(self.queue_model).filter_by(id=queue_id).update(data)
                 else:
-                    q = self.queue_model(fingerprint=fprint, score=score, url=request.url, meta=request.meta,
-                                         headers=request.headers, cookies=request.cookies, method=request.method,
-                                         partition_id=partition_id, host_crc32=host_crc32, created_at=time()*1E+6,
-                                         crawl_at=schedule_at)
+                    q = self.queue_model(**data)
                     to_save.append(q)
                 request.meta[b'state'] = States.QUEUED
         self.session.bulk_save_objects(to_save)
@@ -120,11 +124,14 @@ class RevisitingQueue(BaseQueue):
 
 
 class Backend(SQLAlchemyBackend):
-
-    def _create_queue(self, settings):
+    def __init__(self, manager):
+        super(Backend, self).__init__(manager)
+        settings = manager.settings
         self.interval = settings.get("SQLALCHEMYBACKEND_REVISIT_INTERVAL")
         assert isinstance(self.interval, timedelta)
         self.interval = self.interval.total_seconds()
+
+    def _create_queue(self, settings):
         return RevisitingQueue(
             self.session_cls,
             RevisitingQueueModel,
