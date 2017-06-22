@@ -14,10 +14,10 @@ def test_fingerprint_partitioner():
     assert fp.get_key(request) == key
 
     partition = fp.partition(key, partitions)
-    assert partition == 4
+    assert partition == 1
 
     partition = fp.partition(key, None)
-    assert partition == 4
+    assert partition == 1
 
 
 def test_crc32name_partitioner():

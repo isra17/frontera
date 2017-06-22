@@ -9,21 +9,11 @@ from frontera.utils.url import parse_domain_from_url_fast
 
 
 class Crc32NamePartitioner(Partitioner):
-    def partition(self, key, partitions=None):
-        if not partitions:
-            partitions = self.partitions
-        if key is None:
-            return partitions[0]
-        elif type(key) == int:
-            value = key
+    def hash(self, key):
+        if type(key) == int:
+            return key
         else:
-            value = get_crc32(key)
-        return self.partition_by_hash(value, partitions)
-
-    def partition_by_hash(self, value, partitions):
-        size = len(partitions)
-        idx = value % size
-        return partitions[idx]
+            return get_crc32(key)
 
     @staticmethod
     def get_key(request):
@@ -45,13 +35,10 @@ class Crc32NamePartitioner(Partitioner):
 
 
 class FingerprintPartitioner(Partitioner):
-    def partition(self, key, partitions=None):
-        if not partitions:
-            partitions = self.partitions
+    def hash(self, key):
         digest = unhexlify(key[0:2] + key[5:7] + key[10:12] + key[15:17])
-        value = unpack("<I", digest)
-        idx = value[0] % len(partitions)
-        return partitions[idx]
+        value, = unpack("<I", digest)
+        return value
 
     @staticmethod
     def get_key(request):

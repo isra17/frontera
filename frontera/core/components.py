@@ -259,6 +259,7 @@ class DistributedBackend(Backend):
 
 
 class Partitioner(object):
+    HASH_MASK = 2**31-1
     """
     Base class for a partitioner
     """
@@ -280,7 +281,16 @@ class Partitioner(object):
             key: the key to use for partitioning
             partitions: (optional) a list of partitions.
         """
-        raise NotImplementedError('partition function has to be implemented')
+        if not partitions:
+            partitions = self.partitions
+        if key is None:
+            return partitions[0]
+
+        idx = (self.hash(key) & self.HASH_MASK) % len(partitions)
+        return partitions[idx]
+
+    def hash(self, data):
+        raise NotImplementedError('hash function has to be implemented')
 
     @staticmethod
     def get_key(request):
@@ -288,7 +298,7 @@ class Partitioner(object):
         Takes a :class:`Request <frontera.core.models.Request>` and return an
         extracted value used by the partitioner.
         """
-        raise NotImplementedError('partition function has to be implemented')
+        raise NotImplementedError('get_key function has to be implemented')
 
     def __call__(self, key, all_partitions, available):
         return self.partition(key, all_partitions)
