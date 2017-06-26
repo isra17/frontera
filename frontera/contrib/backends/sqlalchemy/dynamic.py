@@ -22,6 +22,10 @@ class DynamicPartitioner(Partitioner):
         super(DynamicPartitioner, self).__init__(partitioner.partitions)
         self.partitioner = partitioner
 
+    @property
+    def partitions(self):
+        return self.partitioner.partitions
+
     def partition(self, key):
         if not key:
             return 0
