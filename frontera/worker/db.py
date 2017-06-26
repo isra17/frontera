@@ -248,7 +248,7 @@ class DBWorker(object):
                 continue
             finally:
                 count += 1
-            key = self.partitioner_cls.get_key(request)
+            key = self.spider_feed_producer.partitioner.get_key(request)
             self.spider_feed_producer.send(key, eo)
             busy_partitions.add(self.spider_feed_producer.partition(key))
 
