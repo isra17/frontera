@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-import signal
 from __future__ import absolute_import
+import signal
 import logging
 from traceback import format_stack
-from signal import signal, SIGUSR1
 from logging.config import fileConfig
 from argparse import ArgumentParser
 from time import asctime
