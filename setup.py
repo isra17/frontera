@@ -71,7 +71,10 @@ setup(
         ],
         'distributed': [
             'Twisted'
-        ]
+        ],
+        'debug': [
+            'remote-pdb'
+        ],
     },
     tests_require=[
         "pytest>=2.6.4",
