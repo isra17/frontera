@@ -51,7 +51,7 @@ class Consumer(BaseStreamConsumer):
                     if self.seq_warnings:
                         self.logger.warning("Sequence counter mismatch: expected %d, got %d. Check if system "
                                             "isn't missing messages." % (self.counter, seqno))
-                    self.counter = None
+                    self.counter = seqno
                 yield msg[1]
                 count -= 1
                 if self.counter:
