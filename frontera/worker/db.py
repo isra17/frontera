@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+import signal
 import logging
 from traceback import format_stack
-from signal import signal, SIGUSR1
 from logging.config import fileConfig
 from argparse import ArgumentParser
 from time import asctime
 from os.path import exists
+from collections import defaultdict
 
 from twisted.internet import reactor, task
 from frontera.core.components import DistributedBackend
@@ -103,17 +104,17 @@ class DBWorker(object):
         }
         self._logging_task = task.LoopingCall(self.log_status)
 
+    def remote_debug_signal(self, *args):
+        from remote_pdb import RemotePdb
+        RemotePdb('0.0.0.0', 9999).set_trace()
+
     def set_process_info(self, process_info):
         self.process_info = process_info
 
     def run(self):
-        def debug(sig, frame):
-            logger.critical("Signal received: printing stack trace")
-            logger.critical(str("").join(format_stack(frame)))
-
         self.slot.schedule(on_start=True)
         self._logging_task.start(30)
-        signal(SIGUSR1, debug)
+        signal.signal(signal.SIGUSR1, self.remote_debug_signal)
         reactor.addSystemEventTrigger('before', 'shutdown', self.stop)
         reactor.run()
 
@@ -174,16 +175,13 @@ class DBWorker(object):
                         _, partition_id, offset = msg
                         producer_offset = self.spider_feed_producer.get_offset(partition_id)
                         if producer_offset is None:
-                            continue
+                            producer_offset = 0
+
+                        lag = producer_offset - offset
+                        if lag < self.max_next_requests or offset == 0:
+                            self.spider_feed.mark_ready(partition_id)
                         else:
-                            lag = producer_offset - offset
-                            if lag < 0:
-                                # non-sense in general, happens when SW is restarted and not synced yet with Spiders.
-                                continue
-                            if lag < self.max_next_requests or offset == 0:
-                                self.spider_feed.mark_ready(partition_id)
-                            else:
-                                self.spider_feed.mark_busy(partition_id)
+                            self.spider_feed.mark_busy(partition_id)
                         continue
                     logger.debug('Unknown message type %s', type)
                 except Exception as exc:
@@ -239,6 +237,7 @@ class DBWorker(object):
             return 0
 
         count = 0
+        partitions_count = defaultdict(lambda: 0)
         busy_partitions = set()
         for request in self._backend.get_next_requests(self.max_next_requests, partitions=partitions):
             try:
@@ -251,13 +250,16 @@ class DBWorker(object):
                 continue
             finally:
                 count += 1
-            key = self.partitioner_cls.get_key(request)
+            key = self.spider_feed_producer.partitioner.get_key(request)
             self.spider_feed_producer.send(key, eo)
-            busy_partitions.add(self.spider_feed_producer.partition(key))
+            partition_id = self.spider_feed_producer.partition(key)
+            busy_partitions.add(partition_id)
+            partitions_count[partition_id] += 1
 
         for partition_id in busy_partitions:
             self.spider_feed.mark_busy(partition_id)
 
+        logger.info('Sent batches: {!r}'.format(dict(partitions_count)))
         self.stats['pushed_since_start'] += count
         self.stats['last_batch_size'] = count
         self.stats.setdefault('batches_after_start', 0)

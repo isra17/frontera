@@ -19,8 +19,11 @@ def utcnow_timestamp():
 
 class DynamicPartitioner(Partitioner):
     def __init__(self, partitioner):
-        super(DynamicPartitioner, self).__init__(partitioner.partitions)
         self.partitioner = partitioner
+
+    @property
+    def partitions(self):
+        return self.partitioner.partitions
 
     def partition(self, key):
         if not key:
