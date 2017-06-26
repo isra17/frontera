@@ -259,7 +259,7 @@ class DBWorker(object):
         for partition_id in busy_partitions:
             self.spider_feed.mark_busy(partition_id)
 
-        logger.info('Sent batches: {!r}'.format(partitions_count))
+        logger.info('Sent batches: {!r}'.format(dict(partitions_count)))
         self.stats['pushed_since_start'] += count
         self.stats['last_batch_size'] = count
         self.stats.setdefault('batches_after_start', 0)
