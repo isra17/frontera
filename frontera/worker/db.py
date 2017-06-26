@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import signal
 from __future__ import absolute_import
 import logging
 from traceback import format_stack
@@ -104,17 +105,17 @@ class DBWorker(object):
         }
         self._logging_task = task.LoopingCall(self.log_status)
 
+    def remote_debug(self):
+        from remote_pdb import RemotePdb
+        RemotePdb('0.0.0.0', 9999).set_trace()
+
     def set_process_info(self, process_info):
         self.process_info = process_info
 
     def run(self):
-        def debug(sig, frame):
-            logger.critical("Signal received: printing stack trace")
-            logger.critical(str("").join(format_stack(frame)))
-
         self.slot.schedule(on_start=True)
         self._logging_task.start(30)
-        signal(SIGUSR1, debug)
+        signal.signal(signal.SIGUSR1, self.remote_debug)
         reactor.addSystemEventTrigger('before', 'shutdown', self.stop)
         reactor.run()
 
