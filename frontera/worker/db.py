@@ -174,16 +174,13 @@ class DBWorker(object):
                         _, partition_id, offset = msg
                         producer_offset = self.spider_feed_producer.get_offset(partition_id)
                         if producer_offset is None:
-                            continue
+                            producer_offset = 0
+
+                        lag = producer_offset - offset
+                        if lag < self.max_next_requests or offset == 0:
+                            self.spider_feed.mark_ready(partition_id)
                         else:
-                            lag = producer_offset - offset
-                            if lag < 0:
-                                # non-sense in general, happens when SW is restarted and not synced yet with Spiders.
-                                continue
-                            if lag < self.max_next_requests or offset == 0:
-                                self.spider_feed.mark_ready(partition_id)
-                            else:
-                                self.spider_feed.mark_busy(partition_id)
+                            self.spider_feed.mark_busy(partition_id)
                         continue
                     logger.debug('Unknown message type %s', type)
                 except Exception as exc:

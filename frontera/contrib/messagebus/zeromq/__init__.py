@@ -163,7 +163,7 @@ class ScoringLogStream(BaseScoringLogStream):
 
 
 class SpiderFeedProducer(Producer):
-    def __init__(self, context, location, partitions, hwm, partitioner):
+    def __init__(self, context, location, hwm, partitioner):
         super(SpiderFeedProducer, self).__init__(context, location, b'sf')
         self.partitioner = partitioner
         self.sender.set(zmq.SNDHWM, hwm)
@@ -174,9 +174,8 @@ class SpiderFeedStream(BaseSpiderFeedStream):
         self.context = messagebus.context
         self.in_location = messagebus.socket_config.db_out()
         self.out_location = messagebus.socket_config.spiders_in()
-        self.partitions = messagebus.spider_feed_partitions
         self.partitioner = messagebus.spider_feed_partitioner
-        self.ready_partitions = set(self.partitions)
+        self.ready_partitions = set(messagebus.spider_feed_partitions)
         self.consumer_hwm = messagebus.spider_feed_rcvhwm
         self.producer_hwm = messagebus.spider_feed_sndhwm
 
@@ -184,8 +183,7 @@ class SpiderFeedStream(BaseSpiderFeedStream):
         return Consumer(self.context, self.out_location, partition_id, b'sf', seq_warnings=True, hwm=self.consumer_hwm)
 
     def producer(self):
-        return SpiderFeedProducer(self.context, self.in_location, self.partitions,
-                                  self.producer_hwm, self.partitioner)
+        return SpiderFeedProducer(self.context, self.in_location, self.producer_hwm, self.partitioner)
 
     def available_partitions(self):
         return self.ready_partitions
