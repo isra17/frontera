@@ -7,6 +7,7 @@ from logging.config import fileConfig
 from argparse import ArgumentParser
 from time import asctime
 from os.path import exists
+from collections import defaultdict
 
 from twisted.internet import reactor, task
 from frontera.core.components import DistributedBackend
@@ -236,6 +237,7 @@ class DBWorker(object):
             return 0
 
         count = 0
+        partitions_count = defaultdict(lambda: 0)
         busy_partitions = set()
         for request in self._backend.get_next_requests(self.max_next_requests, partitions=partitions):
             try:
@@ -250,11 +252,14 @@ class DBWorker(object):
                 count += 1
             key = self.spider_feed_producer.partitioner.get_key(request)
             self.spider_feed_producer.send(key, eo)
-            busy_partitions.add(self.spider_feed_producer.partition(key))
+            partition_id = self.spider_feed_producer.partition(key)
+            busy_partitions.add(partition_id)
+            partitions_count[partition_id] += 1
 
         for partition_id in busy_partitions:
             self.spider_feed.mark_busy(partition_id)
 
+        logger.info('Sent batches: {!r}'.format(partitions_count))
         self.stats['pushed_since_start'] += count
         self.stats['last_batch_size'] = count
         self.stats.setdefault('batches_after_start', 0)
