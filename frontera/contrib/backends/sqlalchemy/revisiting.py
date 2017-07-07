@@ -94,21 +94,8 @@ class RevisitingQueue(BaseQueue):
         to_save = []
         for fprint, score, request, schedule in batch:
             if schedule:
-                key = self.partitioner.get_key(request)
-                if key is None:
-                    self.logger.error("Can't get partition key for URL %s, fingerprint %s" % (request.url, fprint))
-                    partition_id = self.partitioner.partitions[0]
-                    host_crc32 = 0
-                else:
-                    partition_id = self.partitioner.partition(key)
-                    host_crc32 = get_crc32(key)
-                schedule_at = request.meta[b'crawl_at'] if b'crawl_at' in request.meta else utcnow_timestamp()
+                data = self.request_data(fprint, score, request)
                 queue_id = request.meta.get(b'queue_id')
-                data = dict(
-                    fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
-                    meta=request.meta, headers=request.headers, cookies=request.cookies,
-                    method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
-                    created_at=time()*1E+6, crawl_at=schedule_at)
                 if queue_id:
                     self.session.query(self.queue_model).filter_by(id=queue_id).update(data)
                 else:
@@ -117,6 +104,22 @@ class RevisitingQueue(BaseQueue):
                 request.meta[b'state'] = States.QUEUED
         self.session.bulk_save_objects(to_save)
         self.session.commit()
+
+    def request_data(self, fprint, score, request):
+        key = self.partitioner.get_key(request)
+        if key is None:
+            self.logger.error("Can't get partition key for URL %s, fingerprint %s" % (request.url, fprint))
+            partition_id = self.partitioner.partitions[0]
+            host_crc32 = 0
+        else:
+            partition_id = self.partitioner.partition(key)
+            host_crc32 = get_crc32(key)
+        schedule_at = request.meta[b'crawl_at'] if b'crawl_at' in request.meta else utcnow_timestamp()
+        return dict(
+            fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
+            meta=request.meta, headers=request.headers, cookies=request.cookies,
+            method=to_native_str(request.method), partition_id=partition_id, host_crc32=host_crc32,
+            created_at=time()*1E+6, crawl_at=schedule_at)
 
     @retry_and_rollback
     def count(self):

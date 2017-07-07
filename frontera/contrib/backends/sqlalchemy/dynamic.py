@@ -44,7 +44,7 @@ class DynamicQueueModel(QueueModelMixin, DeclarativeBase):
 
     crawl_at = Column(BigInteger, nullable=False)
     partition_id = query_expression()
-    partition_seed = Column(Integer)
+    partition_seed = Column(Integer, nullable=False)
 
 
 class DynamicQueue(RevisitingQueue):
@@ -78,6 +78,10 @@ class DynamicQueue(RevisitingQueue):
                 ).\
                 filter(partition_query.c.rank <= max_n_requests)
 
+    def request_data(self, *args):
+        data = super().request_data(*args)
+        data['partition_seed'] = data.pop('partition_id')
+        return data
 
 class Backend(RevisitingBackend):
     def _create_queue(self, settings):
