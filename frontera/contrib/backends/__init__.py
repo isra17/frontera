@@ -6,6 +6,9 @@ from frontera import Backend
 from frontera.core.components import States
 
 
+BATCH_MODE_ALL_PARTITIONS = 'ALL_PARTITION'
+
+
 class CommonBackend(Backend):
     """
     A simpliest possible backend, performing one-time crawl: if page was crawled once, it will not be crawled again.
@@ -55,8 +58,11 @@ class CommonBackend(Backend):
     def get_next_requests(self, max_next_requests, **kwargs):
         partitions = kwargs.pop('partitions', [0])  # TODO: Collect from all known partitions
         batch = []
-        for partition_id in partitions:
-            batch.extend(self.queue.get_next_requests(max_next_requests, partition_id, **kwargs))
+        if getattr(self.queue, 'batch_mode', None) == BATCH_MODE_ALL_PARTITIONS:
+            batch.extend(self.queue.get_next_requests(max_next_requests, partitions, **kwargs))
+        else:
+            for partition_id in partitions:
+                batch.extend(self.queue.get_next_requests(max_next_requests, partition_id, **kwargs))
         self.queue_size -= len(batch)
         return batch
 

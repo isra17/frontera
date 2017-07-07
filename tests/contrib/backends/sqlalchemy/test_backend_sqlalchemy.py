@@ -31,6 +31,8 @@ class SQLAlchemyBFS(backends.BFSBackendTest):
 class SQLAlchemyRevisiting(RevisitingBackendTest):
     backend_class = 'frontera.contrib.backends.sqlalchemy.revisiting.Backend'
 
+class SQLAlchemyDynamic(RevisitingBackendTest):
+    backend_class = 'frontera.contrib.backends.sqlalchemy.dynamic.Backend'
 
 #----------------------------------------------------
 # SQLite Memory
@@ -61,7 +63,6 @@ class TestSQLiteMemoryBFS(SQLAlchemyBFS, SQLiteMemory):
 
 class TestSQLiteMemoryRevisiting(SQLAlchemyRevisiting):
     pass
-
 
 #----------------------------------------------------
 # SQLite File
@@ -207,4 +208,7 @@ class TestPostgresDFS(Postgres, SQLAlchemyDFS):
 
 
 class TestPostgresBFS(Postgres, SQLAlchemyBFS):
+    pass
+
+class TestPostgresDynamic(Postgres, SQLAlchemyDynamic):
     pass
