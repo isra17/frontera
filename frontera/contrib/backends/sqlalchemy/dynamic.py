@@ -71,14 +71,12 @@ class DynamicQueue(RevisitingQueue):
             ).\
             subquery()
 
-        q = self.session.query(self.queue_model).\
+        return self.session.query(self.queue_model).\
                 select_entity_from(partition_query).\
                 options(
                     with_expression(self.queue_model.partition_id, partition)
                 ).\
                 filter(partition_query.c.rank <= max_n_requests)
-        print(str(q))
-        return q
 
 
 class Backend(RevisitingBackend):
