@@ -10,8 +10,10 @@ from frontera.contrib.backends import BATCH_MODE_ALL_PARTITIONS
 
 from sqlalchemy import Column, Integer, BigInteger, func, and_
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.expression import between
+from sqlalchemy.sql.expression import between, text
 from sqlalchemy.orm import with_expression, query_expression
+from sqlalchemy.sql.functions import Function
+from sqlalchemy.dialects.postgresql import array
 
 
 def utcnow_timestamp():
@@ -43,6 +45,7 @@ class DynamicQueueModel(QueueModelMixin, DeclarativeBase):
     __tablename__ = 'dynamic_queue'
 
     crawl_at = Column(BigInteger, nullable=False)
+    netloc = query_expression()
     partition_id = query_expression()
     partition_seed = Column(Integer, nullable=False)
 
@@ -51,17 +54,25 @@ class DynamicQueue(RevisitingQueue):
 
     batch_mode = BATCH_MODE_ALL_PARTITIONS
 
-    def query_next_requests(self, max_n_requests, partitions):
-        partition = DynamicQueueModel.partition_seed % len(self.partitioner.partitions)
+    def __init__(self, *args, score_window=1000, max_request_per_host=60):
+        super(DynamicQueue, self).__init__(*args)
+        self.score_window = score_window
+        self.max_request_per_host = max_request_per_host
 
-        partition_query = self.session.query(
+
+    def query_next_requests(self, max_n_requests, partitions):
+        partitions_count = len(self.partitioner.partitions)
+        score_window = partitions_count * self.score_window
+        partition = DynamicQueueModel.partition_seed % partitions_count
+        netloc = text("(regexp_matches(url, '^(?:://)?([^/]+)'))[1]")
+
+        score_query = self.session.query(
                 self.queue_model,
                 func.row_number().over(
-                    partition_by=partition,
                     order_by=[
                         self.queue_model.score.desc(),
                         self.queue_model.crawl_at
-                    ]).label('rank')
+                    ]).label('score_rank')
             ).\
             filter(
                 and_(
@@ -69,6 +80,32 @@ class DynamicQueue(RevisitingQueue):
                     partition.in_(partitions)
                 )
             ).\
+            limit(score_window).\
+            subquery()
+
+        netloc_query = self.session.query(
+                self.queue_model,
+                score_query.c.score_rank,
+                func.row_number().over(
+                    partition_by=[
+                        partition,
+                        netloc
+                    ],
+                    order_by=score_query.c.score_rank
+                ).label('netloc_rank')
+            ).\
+            select_entity_from(score_query).\
+            subquery()
+
+        partition_query = self.session.query(
+                self.queue_model,
+                func.row_number().over(
+                    partition_by=partition,
+                    order_by=netloc_query.c.score_rank
+                ).label('partition_rank')
+            ).\
+            select_entity_from(netloc_query).\
+            filter(netloc_query.c.netloc_rank <= self.max_request_per_host).\
             subquery()
 
         return self.session.query(self.queue_model).\
@@ -76,10 +113,11 @@ class DynamicQueue(RevisitingQueue):
                 options(
                     with_expression(self.queue_model.partition_id, partition)
                 ).\
-                filter(partition_query.c.rank <= max_n_requests)
+                filter(partition_query.c.partition_rank <= max_n_requests)
+
 
     def request_data(self, *args):
-        data = super().request_data(*args)
+        data = super(DynamicQueue, self).request_data(*args)
         data['partition_seed'] = data.pop('partition_id')
         return data
 
@@ -89,5 +127,7 @@ class Backend(RevisitingBackend):
             self.session_cls,
             DynamicQueueModel,
             DynamicPartitioner(self.partitioner),
-            settings.get('SQLALCHEMYBACKEND_DEQUEUED_DELAY'))
+            settings.get('SQLALCHEMYBACKEND_DEQUEUED_DELAY'),
+            score_window=settings.get('SQLALCHEMYBACKEND_SCORE_WINDOW'),
+            max_request_per_host=settings.get('SQLALCHEMYBACKEND_MAX_REQUEST_PER_HOST'))
 
