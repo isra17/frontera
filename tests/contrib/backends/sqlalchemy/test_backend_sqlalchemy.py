@@ -119,6 +119,7 @@ class DBBackendTest(object):
     def get_settings(self):
         settings = super(DBBackendTest, self).get_settings()
         settings.SQLALCHEMYBACKEND_ENGINE = self.DB_ENGINE
+        settings.SQLALCHEMYBACKEND_MAX_REQUEST_PER_HOST = settings.MAX_NEXT_REQUESTS
         return settings
 
     def setup_backend(self, method):
