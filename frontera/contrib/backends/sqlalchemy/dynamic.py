@@ -59,7 +59,6 @@ class DynamicQueue(RevisitingQueue):
         self.score_window = score_window
         self.max_request_per_host = max_request_per_host
 
-
     def query_next_requests(self, max_n_requests, partitions):
         partitions_count = len(self.partitioner.partitions)
         score_window = partitions_count * self.score_window
@@ -67,59 +66,53 @@ class DynamicQueue(RevisitingQueue):
         netloc = text("(regexp_matches(url, '^(?:://)?([^/]+)'))[1]")
 
         score_query = self.session.query(
-                self.queue_model,
-                func.row_number().over(
-                    order_by=[
-                        self.queue_model.score.desc(),
-                        self.queue_model.crawl_at
-                    ]).label('score_rank')
-            ).\
-            filter(
-                and_(
-                    self.queue_model.crawl_at <= utcnow_timestamp(),
-                    partition.in_(partitions)
-                )
-            ).\
+            self.queue_model,
+            func.row_number().over(
+                order_by=[
+                    self.queue_model.score.desc(),
+                    self.queue_model.crawl_at
+                ]).label('score_rank')
+        ).\
+            filter(and_(self.queue_model.crawl_at <= utcnow_timestamp(),
+                        partition.in_(partitions))).\
             limit(score_window).\
             subquery()
 
         netloc_query = self.session.query(
-                self.queue_model,
-                score_query.c.score_rank,
-                func.row_number().over(
-                    partition_by=[
-                        partition,
-                        netloc
-                    ],
-                    order_by=score_query.c.score_rank
-                ).label('netloc_rank')
-            ).\
+            self.queue_model,
+            score_query.c.score_rank,
+            func.row_number().over(
+                partition_by=[
+                    partition,
+                    netloc
+                ],
+                order_by=score_query.c.score_rank
+            ).label('netloc_rank')
+        ).\
             select_entity_from(score_query).\
             subquery()
 
         partition_query = self.session.query(
-                self.queue_model,
-                func.row_number().over(
-                    partition_by=partition,
-                    order_by=netloc_query.c.score_rank
-                ).label('partition_rank')
-            ).\
+            self.queue_model,
+            func.row_number().over(
+                partition_by=partition,
+                order_by=netloc_query.c.score_rank
+            ).label('partition_rank')
+        ).\
             select_entity_from(netloc_query).\
             filter(netloc_query.c.netloc_rank <= self.max_request_per_host).\
             subquery()
 
         return self.session.query(self.queue_model).\
-                select_entity_from(partition_query).\
-                options(
-                    with_expression(self.queue_model.partition_id, partition)
-                ).\
-                filter(partition_query.c.partition_rank <= max_n_requests)
-
+            select_entity_from(partition_query).\
+            options(with_expression(self.queue_model.partition_id, partition)).\
+            filter(partition_query.c.partition_rank <= max_n_requests)
 
     def request_data(self, *args):
         data = super(DynamicQueue, self).request_data(*args)
         data['partition_seed'] = data.pop('partition_id')
         return data
+
 
 class Backend(RevisitingBackend):
     def _create_queue(self, settings):
