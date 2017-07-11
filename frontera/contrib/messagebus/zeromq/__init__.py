@@ -175,24 +175,39 @@ class SpiderFeedStream(BaseSpiderFeedStream):
         self.in_location = messagebus.socket_config.db_out()
         self.out_location = messagebus.socket_config.spiders_in()
         self.partitioner = messagebus.spider_feed_partitioner
-        self.ready_partitions = set(messagebus.spider_feed_partitions)
+        self.partitions_offset = {}
+        for partition_id in self.partitioner.partitions:
+            self.partitions_offset[partition_id] = 0
         self.consumer_hwm = messagebus.spider_feed_rcvhwm
         self.producer_hwm = messagebus.spider_feed_sndhwm
+        self.max_next_requests = messagebus.max_next_requests
+        self._producer = None
 
     def consumer(self, partition_id):
         return Consumer(self.context, self.out_location, partition_id, b'sf', seq_warnings=True, hwm=self.consumer_hwm)
 
     def producer(self):
-        return SpiderFeedProducer(self.context, self.in_location, self.producer_hwm, self.partitioner)
+        if not self._producer:
+            self._producer = SpiderFeedProducer(self.context, self.in_location,
+                                                self.producer_hwm, self.partitioner)
+        return self._producer
 
     def available_partitions(self):
-        return self.ready_partitions
+        if not self._producer:
+            return []
 
-    def mark_ready(self, partition_id):
-        self.ready_partitions.add(partition_id)
+        partitions = []
+        for partition_id, last_offset in self.partitions_offset.items():
+            producer_offset = self._producer.get_offset(partition_id)
+            if producer_offset is None:
+                producer_offset = 0
+            lag = producer_offset - last_offset
+            if lag < self.max_next_requests:
+                partitions.append(partition_id)
+        return partitions
 
-    def mark_busy(self, partition_id):
-        self.ready_partitions.discard(partition_id)
+    def set_spider_offset(self, partition_id, offset):
+        self.partitions_offset[partition_id] = offset
 
 
 class Context(object):
@@ -222,6 +237,7 @@ class MessageBus(BaseMessageBus):
 
         self.spider_feed_sndhwm = int(settings.get('MAX_NEXT_REQUESTS') * len(self.spider_feed_partitions) * 1.2)
         self.spider_feed_rcvhwm = int(settings.get('MAX_NEXT_REQUESTS') * 2.0)
+        self.max_next_requests = int(settings.get('MAX_NEXT_REQUESTS'))
         if self.socket_config.is_ipv6:
             self.context.zeromq.setsockopt(zmq.IPV6, True)
 
