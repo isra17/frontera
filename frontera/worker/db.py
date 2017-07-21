@@ -126,6 +126,11 @@ class DBWorker(object):
         for k, v in six.iteritems(self.stats):
             logger.info("%s=%s", k, v)
 
+        spider_offsets = self.spider_feed.partitions_offset
+        worker_offsets = self.spider_feed.producer().counters
+        logger.info('spider_offsets={!r}'.format(spider_offsets))
+        logger.info('worker_offsets={!r}'.format(worker_offsets))
+
     def disable_new_batches(self):
         self.slot.no_batches = True
 
@@ -173,6 +178,7 @@ class DBWorker(object):
                         continue
                     if type == 'offset':
                         _, partition_id, offset = msg
+                        logger.debug('Offset %s=%s', partition_id, offset)
                         self.spider_feed.set_spider_offset(partition_id, offset)
                         continue
                     logger.debug('Unknown message type %s', type)
