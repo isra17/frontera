@@ -52,6 +52,12 @@ class Server(object):
         db_in_s = self.ctx.socket(zmq.XPUB)
         db_out_s = self.ctx.socket(zmq.XSUB)
 
+        spiders_in_s.set(zmq.SNDHWM, 1000)
+        db_in_s.set(zmq.SNDHWM, 1000)
+
+        spiders_out_s.set(zmq.RCVHWM, 1000)
+        db_out_s.set(zmq.RCVHWM, 1000)
+
         spiders_in_s.bind(socket_config.spiders_in())
         spiders_out_s.bind(socket_config.spiders_out())
         sw_in_s.bind(socket_config.sw_in())

@@ -107,13 +107,13 @@ class RevisitingQueue(BaseQueue):
 
     def request_data(self, fprint, score, request):
         key = self.partitioner.get_key(request)
+        _, hostname, _, _, _, _ = parse_domain_from_url_fast(request.url)
+        host_crc32 = get_crc32(hostname) if hostname else 0
         if key is None:
             self.logger.error("Can't get partition key for URL %s, fingerprint %s" % (request.url, fprint))
             partition_id = self.partitioner.partitions[0]
-            host_crc32 = 0
         else:
             partition_id = self.partitioner.partition(key)
-            host_crc32 = get_crc32(key)
         schedule_at = request.meta[b'crawl_at'] if b'crawl_at' in request.meta else utcnow_timestamp()
         return dict(
             fingerprint=to_native_str(fprint), score=score, url=to_native_str(request.url),
