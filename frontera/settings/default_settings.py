@@ -31,6 +31,7 @@ MIDDLEWARES = [
 ]
 NEW_BATCH_DELAY = 30.0
 OVERUSED_SLOT_FACTOR = 5.0
+OVERUSED_MAX_QUEUE_SIZE = None
 QUEUE_HOSTNAME_PARTITIONING = False
 REQUEST_MODEL = 'frontera.core.models.Request'
 RESPONSE_MODEL = 'frontera.core.models.Response'
