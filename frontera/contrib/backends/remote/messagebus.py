@@ -62,6 +62,12 @@ class MessageBusBackend(Backend):
         self.spider_log_producer.send(host_fprint, self._encoder.encode_request_error(page, error))
 
     def _get_next_requests(self, max_n_requests, **kwargs):
+        overused = kwargs.get('overused_keys')
+        if overused:
+            self.spider_log_producer.send(
+                b'0123456789abcdef0123456789abcdef012345678',
+                self._encoder.encode_overused(self.partition_id, overused))
+
         requests = []
         for encoded in self.consumer.get_messages(count=max_n_requests, timeout=self._get_timeout):
             try:
@@ -73,6 +79,7 @@ class MessageBusBackend(Backend):
         self.spider_log_producer.send(b'0123456789abcdef0123456789abcdef012345678',
                                       self._encoder.encode_offset(self.partition_id,
                                                                   self.consumer.get_offset(self.partition_id)))
+
         return requests
 
     def get_next_requests(self, max_n_requests, **kwargs):
