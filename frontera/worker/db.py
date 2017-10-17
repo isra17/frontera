@@ -185,7 +185,7 @@ class DBWorker(object):
                         if not hasattr(self._backend, 'set_overused'):
                             continue
                         _, partition_id, netlocs = msg
-                        logger.info('{} overused domains from partition %i', len(netlocs), partition_id)
+                        logger.info('%i overused domains from partition %i', len(netlocs), partition_id)
                         for netloc in netlocs:
                             logger.debug('Domain: %s', netloc)
                         self._backend.set_overused(partition_id, netlocs)
