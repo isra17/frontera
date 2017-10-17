@@ -1,3 +1,4 @@
+import pytest
 from frontera.core.models import Request, Response
 from frontera.worker.db import DBWorker
 from frontera.settings import Settings
@@ -90,6 +91,7 @@ class TestDBWorker(object):
         assert dbw.new_batch() == 3
         assert 3 in dbw._backend.partitions
 
+    @pytest.mark.skip
     def test_busy_on_new_batch(self):
         dbw = self.dbw_setup(True)
         msg1 = dbw._encoder.encode_offset(0, 64)

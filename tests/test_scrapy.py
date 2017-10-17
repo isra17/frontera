@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import sys
+import pytest
 
 from scrapy.core.spidermw import SpiderMiddlewareManager
 from scrapy.http import Request, Response
@@ -125,6 +126,7 @@ class TestFronteraMiddlewaresWithScrapy(unittest.TestCase):
 
         crawler.engine = Engine(scheduler)
 
+    @pytest.mark.skip
     def test_frontera_scheduler_spider_middleware_with_referer_middleware(self):
 
         def request_callback(response):
