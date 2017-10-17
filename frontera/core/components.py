@@ -244,6 +244,14 @@ class Backend(PropertiesMixin, Component):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def set_overused(self, partition_id, netlocs):
+        """
+        Flag a set of `netlocs` as overused, giving a chance to the backend to
+        reduce the amound of request from those in the next batches.
+        """
+        raise NotImplementedError
+
 
 @six.add_metaclass(ABCMeta)
 class DistributedBackend(Backend):

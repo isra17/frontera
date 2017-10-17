@@ -24,6 +24,8 @@ class CommonBackend(Backend):
         self.queue.frontier_start()
         self.states.frontier_start()
         self.queue_size = self.queue.count()
+        self.overused_batch_delay = self.manager.settings.get('OVERUSED_BATCH_DELAY', 5)
+        self.overused = {}
 
     def frontier_stop(self):
         self.metadata.frontier_stop()
@@ -58,11 +60,12 @@ class CommonBackend(Backend):
     def get_next_requests(self, max_next_requests, **kwargs):
         partitions = kwargs.pop('partitions', [0])  # TODO: Collect from all known partitions
         batch = []
+        overused = self.get_overused_for_batch(partitions)
         if getattr(self.queue, 'batch_mode', None) == BATCH_MODE_ALL_PARTITIONS:
-            batch.extend(self.queue.get_next_requests(max_next_requests, partitions, **kwargs))
+            batch.extend(self.queue.get_next_requests(max_next_requests, partitions, overused=overused, **kwargs))
         else:
             for partition_id in partitions:
-                batch.extend(self.queue.get_next_requests(max_next_requests, partition_id, **kwargs))
+                batch.extend(self.queue.get_next_requests(max_next_requests, partition_id, overused=overused[partition_id], **kwargs))
         self.queue_size -= len(batch)
         return batch
 
@@ -87,6 +90,29 @@ class CommonBackend(Backend):
         request.meta[b'state'] = States.ERROR
         self.metadata.request_error(request, error)
         self.states.update_cache(request)
+
+    def set_overused(self, partition_id, netlocs):
+        new_overused = {
+            netloc: self.overused_batch_delay
+            for netloc in netlocs
+        }
+        new_overused.update(self.overused.get(partition_id, {}))
+        self.overused[partition_id] = new_overused
+
+    def get_overused_for_batch(self, partitions):
+        overuseds = {}
+        for partition in partitions:
+            overuseds[partition] = set()
+            expired = []
+            for netloc in self.overused.get(partition, {}):
+                if self.overused[partition][netloc] <= 0:
+                    expired.append(netloc)
+                else:
+                    overuseds[partition].add(netloc)
+                self.overused[partition][netloc] -= 1
+            for netloc in expired:
+                del self.overused[partition][netloc]
+        return overuseds
 
     def finished(self):
         return self.queue_size == 0

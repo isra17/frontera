@@ -181,6 +181,13 @@ class DBWorker(object):
                         logger.debug('Offset %s=%s', partition_id, offset)
                         self.spider_feed.set_spider_offset(partition_id, offset)
                         continue
+                    if type == 'overused':
+                        _, partition_id, netlocs = msg
+                        logger.info('{} overused domains from partition %i', len(netlocs), partition_id)
+                        for netloc in netlocs:
+                            logger.debug('Domain: %s', netloc)
+                        self._backend.set_overused(partition_id, netlocs)
+                        continue
                     logger.debug('Unknown message type %s', type)
                 except Exception as exc:
                     logger.exception(exc)

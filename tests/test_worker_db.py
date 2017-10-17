@@ -89,7 +89,6 @@ class TestDBWorker(object):
         dbw._backend.queue.put_requests([r1, r2, r3])
         assert dbw.new_batch() == 3
         assert 3 in dbw._backend.partitions
-<<<<<<< HEAD
 
     def test_busy_on_new_batch(self):
         dbw = self.dbw_setup(True)
@@ -133,3 +132,11 @@ class TestDBWorker(object):
         dbw.spider_feed_producer.offset = 256
         assert 0 not in dbw.spider_feed.available_partitions()
         assert 1 not in dbw.spider_feed.available_partitions()
+
+    def test_overused(self):
+        dbw = self.dbw_setup()
+        msg = dbw._encoder.encode_overused(0, ['A', 'B'])
+        dbw.spider_log_consumer.put_messages([msg])
+        dbw.consume_incoming()
+
+        assert (0, {'A', 'B'}) == dbw._backend.overused
