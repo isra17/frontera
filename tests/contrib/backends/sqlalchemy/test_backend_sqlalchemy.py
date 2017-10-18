@@ -211,5 +211,3 @@ class TestPostgresDFS(Postgres, SQLAlchemyDFS):
 class TestPostgresBFS(Postgres, SQLAlchemyBFS):
     pass
 
-class TestPostgresDynamic(Postgres, SQLAlchemyDynamic):
-    pass

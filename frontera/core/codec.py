@@ -118,3 +118,14 @@ class BaseEncoder(object):
         :return: bytes encoded message
         """
         pass
+
+    @abstractmethod
+    def encode_overused(self, partition_id, netlocs):
+        """
+        Encodes current spider offset in spider feed.
+
+        :param int partition_id:
+        :param int offset:
+        :return: bytes encoded message
+        """
+        pass

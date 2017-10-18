@@ -75,6 +75,7 @@ class FakeBackend(FakeMiddleware, Backend):
 
     _finished = False
     queue = FakeQueue()
+    overused = None
 
     def finished(self):
         return self._finished
@@ -84,6 +85,9 @@ class FakeBackend(FakeMiddleware, Backend):
 
     def get_next_requests(self, max_next_requests, **kwargs):
         return self.queue.get_next_requests(max_next_requests, **kwargs)
+
+    def set_overused(self, partition_id, netlocs):
+        self.overused = (partition_id, set(netlocs))
 
 
 class FakeDistributedBackend(FakeBackend, DistributedBackend):

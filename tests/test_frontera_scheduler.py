@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import pytest
 from frontera.contrib.scrapy.schedulers.frontier import FronteraScheduler
 from tests.mocks.frontier_manager import FakeFrontierManager
 from tests.mocks.crawler import FakeCrawler
@@ -106,6 +107,7 @@ class TestFronteraScheduler(object):
         assert set(fs.frontier.manager.get_next_requests_kwargs[0]['overused_keys']) == set(['2.1.3', '4.1.3'])
         assert fs.stats_manager.stats.get_value('frontera/returned_requests_count') == 1
 
+    @pytest.mark.skip
     def test_process_spider_output(self):
         i1 = {'name': 'item', 'item': 'i1'}
         i2 = {'name': 'item', 'item': 'i2'}

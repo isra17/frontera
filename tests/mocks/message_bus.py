@@ -1,5 +1,6 @@
 from frontera.core.messagebus import BaseMessageBus, BaseSpiderLogStream, BaseStreamConsumer, \
     BaseScoringLogStream, BaseSpiderFeedStream, BaseStreamProducer
+from frontera.contrib.backends.partitioners import FingerprintPartitioner
 
 
 class Consumer(BaseStreamConsumer):
@@ -32,6 +33,7 @@ class Producer(BaseStreamProducer):
     def __init__(self):
         self.messages = []
         self.offset = 0
+        self.partitioner = FingerprintPartitioner([0])
 
     def send(self, key, *messages):
         self.messages += messages
