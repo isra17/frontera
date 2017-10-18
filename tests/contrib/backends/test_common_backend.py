@@ -1,4 +1,5 @@
-from unittest.mock import Mock
+from __future__ import absolute_import
+from tests import Mock
 from frontera import Settings
 from frontera.contrib.backends import CommonBackend
 

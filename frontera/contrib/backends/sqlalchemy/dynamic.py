@@ -54,7 +54,7 @@ class DynamicQueue(RevisitingQueue):
 
     batch_mode = BATCH_MODE_ALL_PARTITIONS
 
-    def __init__(self, *args, score_window=1000, max_request_per_host=60):
+    def __init__(self, score_window=1000, max_request_per_host=60, *args):
         super(DynamicQueue, self).__init__(*args)
         self.score_window = score_window
         self.max_request_per_host = max_request_per_host
