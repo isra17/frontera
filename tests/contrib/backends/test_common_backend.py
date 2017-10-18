@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from tests.mock import Mock
+from tests import mock
 from frontera import Settings
 from frontera.contrib.backends import CommonBackend
 
@@ -14,13 +14,13 @@ class Backend(CommonBackend):
 
     @property
     def metadata(self):
-        return Mock()
+        return mock.Mock()
     @property
     def queue(self):
-        return Mock()
+        return mock.Mock()
     @property
     def states(self):
-        return Mock()
+        return mock.Mock()
 
 def test_overused():
     settings = Settings(attributes={
