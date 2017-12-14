@@ -32,7 +32,7 @@ def _prepare_request_message(request):
         else:
             logger.warning('unable to serialize object: {}'.format(obj))
             return None
-    return [request.url, request.method, request.headers, request.cookies, serialize(request.meta)]
+    return [request.url, request.method, request.body, request.headers, request.cookies, serialize(request.meta)]
 
 
 def _prepare_response_message(response, send_body):
@@ -88,9 +88,10 @@ class Decoder(BaseDecoder):
     def _request_from_object(self, obj):
         return self._request_model(url=to_native_str(obj[0]),
                                    method=obj[1],
-                                   headers=obj[2],
-                                   cookies=obj[3],
-                                   meta=obj[4])
+                                   body=obj[2],
+                                   headers=obj[3],
+                                   cookies=obj[4],
+                                   meta=obj[5])
 
     def decode(self, buffer):
         obj = unpackb(buffer, encoding='utf-8')
