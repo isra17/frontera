@@ -45,7 +45,10 @@ class Slot(object):
         self.new_batch_delay = new_batch_delay
 
     def error(self, f):
-        logger.error(f.value, exc_info=(f.type, f.value, f.getTracebackObject()))
+        try:
+            logger.error(f.value, exc_info=(f.type, f.value, f.getTracebackObject()))
+        except:
+            self.exception(f.value)
         return f
 
     def schedule(self, on_start=False):
