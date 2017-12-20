@@ -60,7 +60,9 @@ class Consumer(BaseStreamConsumer):
                 self.stats[self.stat_key] += 1
 
     def get_offset(self, partition_id):
-        return self.counters.get(partition_id, 0)
+        if self.counters:
+            return max(self.counters.values())
+        return 0
 
 
 class Producer(BaseStreamProducer):
