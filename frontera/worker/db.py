@@ -10,6 +10,7 @@ from os.path import exists
 from collections import defaultdict
 
 from twisted.internet import reactor, task
+from twisted.python.failure import Failure
 from frontera.core.components import DistributedBackend
 from frontera.core.manager import FrontierManager
 from frontera.logger.handlers import CONSOLE
@@ -45,9 +46,9 @@ class Slot(object):
         self.new_batch_delay = new_batch_delay
 
     def error(self, f):
-        try:
+        if isinstance(f, Failure):
             logger.error(f.value, exc_info=(f.type, f.value, f.getTracebackObject()))
-        except:
+        else:
             self.exception(f.value)
         return f
 
