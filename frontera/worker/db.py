@@ -132,8 +132,10 @@ class DBWorker(object):
 
         spider_offsets = self.spider_feed.partitions_offset
         worker_offsets = self.spider_feed.producer().counters
+        overused = {p:len(o) for p, o in self._backend.overused.items()}
         logger.info('spider_offsets={!r}'.format(spider_offsets))
         logger.info('worker_offsets={!r}'.format(worker_offsets))
+        logger.info('overused={!r}'.format(overused))
 
     def disable_new_batches(self):
         self.slot.no_batches = True
@@ -192,7 +194,6 @@ class DBWorker(object):
                         if not hasattr(self._backend, 'set_overused'):
                             continue
                         _, partition_id, netlocs = msg
-                        logger.info('%i overused domains from partition %i', len(netlocs), partition_id)
                         for netloc in netlocs:
                             logger.debug('Domain: %s', netloc)
                         self._backend.set_overused(partition_id, netlocs)
