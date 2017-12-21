@@ -163,6 +163,7 @@ class DBWorker(object):
                         _, response = msg
                         logger.debug("Page crawled %s", response.url)
                         if b'jid' not in response.meta or response.meta[b'jid'] != self.job_id:
+                            self.logger.warning('Response {} has no jid'.format(response))
                             continue
                         self._backend.page_crawled(response)
                         continue
@@ -170,6 +171,7 @@ class DBWorker(object):
                         _, request, links = msg
                         logger.debug("Links extracted %s (%d)", request.url, len(links))
                         if b'jid' not in request.meta or request.meta[b'jid'] != self.job_id:
+                            self.logger.warning('Response {} has no jid'.format(request))
                             continue
                         self._backend.links_extracted(request, links)
                         continue
@@ -177,6 +179,7 @@ class DBWorker(object):
                         _, request, error = msg
                         logger.debug("Request error %s", request.url)
                         if b'jid' not in request.meta or request.meta[b'jid'] != self.job_id:
+                            self.logger.warning('Response {} has no jid'.format(request))
                             continue
                         self._backend.request_error(request, error)
                         continue

@@ -56,7 +56,6 @@ class Consumer(BaseStreamConsumer):
                 yield msg[1]
                 count -= 1
                 self.counters[from_partition] += 1
-                self.logger.debug('Counter: {}={} ({}, {}) from {}'.format(seqno, self.counters[from_partition], global_seqno, partition_seqno, from_partition))
                 self.stats[self.stat_key] += 1
 
     def get_offset(self, partition_id):
