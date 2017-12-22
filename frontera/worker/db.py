@@ -163,7 +163,10 @@ class DBWorker(object):
                         continue
                     if type == 'page_crawled':
                         _, response = msg
-                        logger.debug("Page crawled %s", response.url)
+                        request = response.request
+                        request_fingerprint = request.meta.get(b'fingerprint').decode() if request else None
+
+                        logger.debug("Page crawled %s [%s from %s]", response.url, response.meta.get(b'fingerprint').decode(), request_fingerprint)
                         if b'jid' not in response.meta or response.meta[b'jid'] != self.job_id:
                             self.logger.warning('Response {} has no jid'.format(response))
                             continue
@@ -171,7 +174,7 @@ class DBWorker(object):
                         continue
                     if type == 'links_extracted':
                         _, request, links = msg
-                        logger.debug("Links extracted %s (%d)", request.url, len(links))
+                        logger.debug("Links extracted %s (%d) [%s]", request.url, len(links), request.meta.get(b'fingerprint').decode())
                         if b'jid' not in request.meta or request.meta[b'jid'] != self.job_id:
                             self.logger.warning('Response {} has no jid'.format(request))
                             continue
@@ -179,7 +182,7 @@ class DBWorker(object):
                         continue
                     if type == 'request_error':
                         _, request, error = msg
-                        logger.debug("Request error %s", request.url)
+                        logger.debug("Request error %s [%s]", request.url, request.meta.get(b'fingerprint'))
                         if b'jid' not in request.meta or request.meta[b'jid'] != self.job_id:
                             self.logger.warning('Response {} has no jid'.format(request))
                             continue
