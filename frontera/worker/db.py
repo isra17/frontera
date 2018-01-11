@@ -273,7 +273,7 @@ class DBWorker(object):
             self.spider_feed_producer.send(key, eo)
             partition_id = self.spider_feed_producer.partition(key)
             partitions_count[partition_id] += 1
-            by_partition[partition_id][request.get(b'source')] += 1
+            by_partition[partition_id][request.meta.get(b'source')] += 1
 
         logger.debug('Batch Stats:')
         for partition in sorted(by_partition):
