@@ -256,7 +256,6 @@ class DBWorker(object):
 
         count = 0
         partitions_count = defaultdict(lambda: 0)
-        by_partition = defaultdict(lambda: defaultdict(int))
 
         for request in self._backend.get_next_requests(self.max_next_requests, partitions=partitions):
             try:
@@ -273,14 +272,6 @@ class DBWorker(object):
             self.spider_feed_producer.send(key, eo)
             partition_id = self.spider_feed_producer.partition(key)
             partitions_count[partition_id] += 1
-            by_partition[partition_id][request.meta.get(b'source')] += 1
-
-        logger.debug('Batch Stats:')
-        for partition in sorted(by_partition):
-            stats = by_partition[partition]
-            stats_sum = sum(stats.values())
-            line = ', '.join('{}: {}'.format(source, stats[source]) for source in sorted(stats))
-            logger.debug('{}: sum: {}, {}'.format(partition, stats_sum, line))
 
         logger.info('Sent batches: {!r}'.format(dict(partitions_count)))
         self.stats['pushed_since_start'] += count
