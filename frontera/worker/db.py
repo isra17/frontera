@@ -250,6 +250,7 @@ class DBWorker(object):
 
     def new_batch(self, *args, **kwargs):
         partitions = self.spider_feed.available_partitions()
+        self._backend.on_new_batch(partitions)
         logger.info("Getting new batches for partitions %s" % str(",").join(map(str, partitions)))
         if not partitions:
             return 0

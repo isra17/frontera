@@ -41,6 +41,9 @@ class CommonBackend(Backend):
         self._schedule(seeds)
         self.states.update_cache(seeds)
 
+    def on_new_batch(self, partitions):
+        pass
+
     def _schedule(self, requests):
         batch = []
         queue_incr = 0
